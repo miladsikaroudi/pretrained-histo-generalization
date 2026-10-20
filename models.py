@@ -439,7 +439,8 @@ class ModelHandler:
             
             softmax_outputs = torch.nn.functional.softmax(outputs, dim=1)
             _, preds = torch.max(softmax_outputs, 1)
-            loss = criterion(softmax_outputs, labels)
+            # CrossEntropyLoss applies log-softmax itself, so it takes raw logits.
+            loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
 
@@ -502,7 +503,7 @@ class ModelHandler:
                                 outputs = model_output
                             softmax_outputs = torch.nn.functional.softmax(outputs, dim=1)
                             _, preds = torch.max(softmax_outputs, 1)
-                            loss = criterion(softmax_outputs, labels)
+                            loss = criterion(outputs, labels)
                         
                     # statistics
                     all_targets.extend(labels.cpu().detach().numpy().tolist())
@@ -553,8 +554,7 @@ class ModelHandler:
     @classmethod
     def get_model(cls, config, device):
         torch.manual_seed(0)
-        model_name_str = config["model"].upper().replace("_", "")
-        model_name = ModelName[model_name_str]
+        model_name = ModelName(config["model"].lower())
         kimianet_weight_path = config["kimianet_weight_path"]
         model = cls.get_base_model(model_name, device, num_classes=2, 
                             kimianet_weight_path=kimianet_weight_path, 

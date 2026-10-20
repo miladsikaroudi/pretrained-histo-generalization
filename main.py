@@ -30,7 +30,7 @@ def main():
                              num_epochs=config['epochs'])
 
     save_path = '_'.join(['Experiment_' + holdout_trial_site, 
-                          model.name, 
+                          config["model"], 
                           str(config['learning_rate']), 
                           str(config['epochs']), 
                           str(config['batch_size']), 

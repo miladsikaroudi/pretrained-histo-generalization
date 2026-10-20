@@ -1,6 +1,11 @@
 # Generalization of vision pre-trained models for histopathology
 This is the repository for generalization of vision pre-trained models for histopathology:
 
+> **Note (Oct 2026):** earlier versions of `models.py` passed softmax outputs to
+> `CrossEntropyLoss`, which applies softmax a second time. The results in the paper
+> were produced with that code. The loss now takes raw logits, so retraining may
+> give different numbers.
+
 ## Citing this work
 
 If you use this code or the results for your research, please cite:
