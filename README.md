@@ -1,94 +1,101 @@
 # Generalization of vision pre-trained models for histopathology
-This is the repository for generalization of vision pre-trained models for histopathology:
 
-> **Note (Oct 2026):** earlier versions of `models.py` passed softmax outputs to
-> `CrossEntropyLoss`, which applies softmax a second time. The results in the paper
-> were produced with that code. The loss now takes raw logits, so retraining may
-> give different numbers.
+Code for Sikaroudi et al., *Generalization of vision pre-trained models for histopathology*, Scientific Reports 13, 6065 (2023).
 
-## Citing this work
+The experiment is leave-one-site-out on Camelyon17: train a backbone on four hospitals, select the checkpoint on a validation split of those four, and measure accuracy, AUC and F-beta on the fifth hospital, which the model never sees.
 
-If you use this code or the results for your research, please cite:
+## Corrections since publication (October 2026)
+
+A review of the original code found four bugs. All four are fixed here. Each one changes what a retrained model learns, so new runs will not reproduce the numbers in the paper exactly.
+
+| Bug in the 2023 code | Effect | Fix |
+|---|---|---|
+| `CrossEntropyLoss` received softmax outputs | Softmax applied twice; flattened gradients | The loss takes raw logits |
+| `HEDJitter` and `RandomGaussBlur` drew their random parameters once, in `__init__` | Every training image got the same stain shift and blur, so augmentation was a fixed colour transform | Parameters are drawn per image |
+| `random_split` sliced one dataset that carried the training transform | Validation images were augmented | Separate train and validation datasets; only training is augmented |
+| The KimiaNet loader stripped `module.` and loaded with `strict=False` | With a checkpoint in KimiaNet's published layout (`module.model.*`), no weights load and nothing reports it; `tests/test_models.py` reproduces this | Keys are remapped, and loading fails if any feature tensor is missing |
+
+Check the last row against your own copy of `KimiaNetPyTorchWeights.pth`: with the published layout, the KimiaNet results in the paper came from a randomly initialised DenseNet-121.
+
+## Install
+
+```bash
+pip install -e .            # add [wandb] to log runs, [dev] for tests
+```
+
+Python 3.10+, PyTorch 2.1+.
+
+## Data
+
+One CSV per site in `dataframe_root`, named `<site>.csv`, with two columns:
+
+| column | meaning |
+|---|---|
+| `file_paths` | path to an RGB patch |
+| `class_label` | 0 = normal, 1 = tumour |
+
+## Run
+
+```bash
+histogen-train --config configs/camelyon17.json
+histogen-train --config configs/camelyon17.json --holdout-site center_3 --model resnet50
+histogen-train --config configs/camelyon17.json --set batch_size=32 --set augmentation_in_training=true
+```
+
+`python main.py` still works. Each run saves `holdout-<site>_<model>_…pt` to `output_dir` with the best `val_in` weights and the config used.
+
+### Models
+
+`resnet18`, `resnet50`, `resnet152`, `resnext50_32x4d`, `resnext101_32x8d` (torchvision, ImageNet weights if `pretrained`); `resnet18_ssl`, `resnet18_swsl` (Yalniz et al. 2019, from torch.hub); `kimianet` (DenseNet-121 with weights from `kimianet_weight_path`).
+
+### Config keys
+
+| key | default | |
+|---|---|---|
+| `sites`, `holdout_site` | required | Site names; the hold-out is excluded from training |
+| `train_val_portions` | `[70, 10]` | Percent of training-site patches for train and validation; the rest is unused |
+| `augmentation_in_training` | `false` | One of HED jitter (θ = 0.1 or 0), brightness/contrast jitter, or Gaussian blur per image |
+| `frozen_children` | `1` | Leading child modules to freeze (ResNet `conv1`) |
+| `seed` | `0` | Seeds the split, the weights and the augmentations |
+| `wandb_project` | unset | Log to Weights & Biases; the entity comes from `WANDB_ENTITY` |
+
+Configs from 2023 (`trail_sites`, `holdout_trial_site`) still load.
+
+## Layout
 
 ```
+src/histogen/
+  config.py      Config dataclass, JSON + overrides
+  data.py        PatchDataset, seeded site split, loaders
+  transforms.py  HEDJitter, RandomGaussBlur, train/eval pipelines
+  models.py      backbones, KimiaNet loading, layer freezing
+  train.py       epoch loop, dataset-level metrics, best-checkpoint selection
+  cli.py         histogen-train
+tests/           runs on CPU with synthetic patches
+```
+
+```bash
+pip install -e ".[dev]" && pytest
+```
+
+## Citing
+
+```bibtex
 @article{sikaroudi2023generalization,
-  title={Generalization of vision pre-trained models for histopathology},
-  author={Sikaroudi, Milad and Hosseini, Maryam and Gonzalez, Ricardo and Rahnamayan, Shahryar and Tizhoosh, HR},
-  journal={Scientific reports},
-  volume={13},
-  number={1},
-  pages={6065},
-  year={2023},
-  publisher={Nature Publishing Group UK London}
+  title   = {Generalization of vision pre-trained models for histopathology},
+  author  = {Sikaroudi, Milad and Hosseini, Maryam and Gonzalez, Ricardo and Rahnamayan, Shahryar and Tizhoosh, HR},
+  journal = {Scientific Reports},
+  volume  = {13},
+  number  = {1},
+  pages   = {6065},
+  year    = {2023}
 }
 ```
 
-## Getting Started
+## Credits
 
-These instructions will guide you on how to execute the code on your local machine for development and testing purposes.
-
-### Prerequisites
-
-You need to have the following packages installed:
-- Python 3.7+
-- PyTorch 1.9.0+
-- numpy
-- pandas
-- sklearn
-- wandb
-- torchvision
-- PIL
-
-You can install these packages using pip:
-
-```
-pip install torch torchvision numpy pandas sklearn wandb pillow
-```
-
-### Configuration
-
-To run the program, you need to have a configuration file (`config.json`). Here is a sample configuration file that you can use:
-
-```json
-{
-    "learning_rate": 0.0001,
-    "momentum": 0.9,
-    "epochs": 50,
-    "batch_size": 64,
-    "augmentation_in_training": false,
-    "model": "kimianet",
-    "pretrained": false,
-    "kimianet_weight_path": "../kimianet_weights/KimiaNetPyTorchWeights.pth",
-    "dataframe_root": "/isilon/datasets/camelyon17/",
-    "trail_sites": ["center_0", "center_1", "center_2", "center_3", "center_4"],
-    "holdout_trial_site": "center_0",
-    "font_path": "/usr/share/fonts/type1/gsfonts/c059016l.pfb",
-    "train_val_portions": [70,10]
-}
-```
-Note: Please adjust the parameters according to your needs and availability of computational resources.
-
-### Running the code
-
-To run the code, simply execute the main Python script:
-
-```
-python main.py
-```
-
-The script will then start training the model according to the parameters specified in the `config.json` file.
-
-The model weights will be saved in the current directory with a name specified by the parameters in the `config.json` file.
-
-## Contributions
-
-Your contributions are always welcome. If you find a bug or want to propose a new feature, feel free to open an issue or send a pull request.
-
-## Contact
-
-If you need to get in touch with the maintainer of this project, please contact me at msikaroudi@uwaterloo.ca.
+`HEDJitter` implements the HED augmentation of Tellez et al. (IEEE TMI 2018), after [gatsby2016/Augmentation-PyTorch-Transforms](https://github.com/gatsby2016/Augmentation-PyTorch-Transforms) (Apache-2.0). KimiaNet is by Riasatian et al. (Medical Image Analysis 2021).
 
 ## License
 
-This project is licensed under MIT License.
-
+MIT. Contact: msikaroudi@uwaterloo.ca

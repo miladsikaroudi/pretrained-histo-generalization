@@ -1,3 +1,9 @@
-old_models.py
-wandb
-__pycache__
+__pycache__/
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+wandb/
+checkpoints/
+*.pt
+*.pth

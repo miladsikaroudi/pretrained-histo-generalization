@@ -1,0 +1,21 @@
+{
+    "dataframe_root": "/isilon/datasets/camelyon17/",
+    "sites": ["center_0", "center_1", "center_2", "center_3", "center_4"],
+    "holdout_site": "center_0",
+    "train_val_portions": [70, 10],
+
+    "model": "kimianet",
+    "pretrained": false,
+    "kimianet_weight_path": "../kimianet_weights/KimiaNetPyTorchWeights.pth",
+
+    "learning_rate": 0.0001,
+    "momentum": 0.9,
+    "epochs": 50,
+    "batch_size": 64,
+    "augmentation_in_training": false,
+
+    "seed": 0,
+    "num_workers": 8,
+    "output_dir": "checkpoints",
+    "wandb_project": "pretrained-histo-generalization"
+}
